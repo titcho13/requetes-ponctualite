@@ -1,0 +1,7 @@
+# Données réelles : ne JAMAIS les publier
+donnees/
+*.xlsx
+*.xls
+*.csv
+__pycache__/
+.venv/
