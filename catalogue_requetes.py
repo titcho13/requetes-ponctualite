@@ -546,24 +546,39 @@ def graphique(df, spec):
     if not spec or df is None or df.empty:
         return None
     import altair as alt
+    ENCRE, OK, RETARD, AVANCE = "#12263F", "#1C9B6C", "#E0482B", "#2E6BD6"
+    noms = {"pct_retard": "En retard", "pct_avance": "En avance", "pct_a_l_heure": "À l’heure"}
+    coul = {"En retard": RETARD, "En avance": AVANCE, "À l’heure": OK}
     t = spec["type"]
     if t == "line":
         d = df.melt(id_vars=spec["x"], value_vars=spec["y"], var_name="indicateur", value_name="valeur")
-        return (alt.Chart(d).mark_line(point=True)
-                .encode(x=alt.X(f"{spec['x']}:N", sort=None, title=None), y=alt.Y("valeur:Q", title="%"),
-                        color=alt.Color("indicateur:N", title=None),
-                        tooltip=[spec["x"], "indicateur", "valeur"]).properties(height=320))
-    if t == "bar":
+        d["indicateur"] = d["indicateur"].map(noms).fillna(d["indicateur"])
+        ch = (alt.Chart(d).mark_line(point=alt.OverlayMarkDef(filled=True, size=60), strokeWidth=3)
+              .encode(x=alt.X(f"{spec['x']}:N", sort=None, title=None, axis=alt.Axis(labelAngle=-45)),
+                      y=alt.Y("valeur:Q", title="% des passages"),
+                      color=alt.Color("indicateur:N", title=None,
+                                      scale=alt.Scale(domain=list(coul), range=list(coul.values())),
+                                      legend=alt.Legend(orient="top")),
+                      tooltip=[spec["x"], "indicateur", "valeur"]).properties(height=300))
+    elif t == "bar":
         d = df.head(25)
-        return (alt.Chart(d).mark_bar()
-                .encode(y=alt.Y(f"{spec['x']}:N", sort="-x", title=None), x=alt.X(f"{spec['y']}:Q", title=spec["y"]),
-                        tooltip=list(d.columns[:6])).properties(height=max(200, 22 * len(d))))
-    if t == "heat":
-        return (alt.Chart(df).mark_rect()
-                .encode(x=alt.X(f"{spec['x']}:O", title="heure"), y=alt.Y(f"{spec['y']}:N", sort=ORDRE_JOURS, title=None),
-                        color=alt.Color(f"{spec['val']}:Q", scale=alt.Scale(scheme="reds"), title="% retard"),
-                        tooltip=list(df.columns)).properties(height=300))
-    return None
+        couleur = RETARD if "retard" in spec["y"] else ENCRE
+        ch = (alt.Chart(d).mark_bar(color=couleur, cornerRadiusEnd=4)
+              .encode(y=alt.Y(f"{spec['x']}:N", sort="-x", title=None), x=alt.X(f"{spec['y']}:Q", title=noms.get(spec["y"], spec["y"]) + " (%)"),
+                      tooltip=list(d.columns[:6])).properties(height=max(200, 24 * len(d))))
+    elif t == "heat":
+        ch = (alt.Chart(df).mark_rect(stroke="white", strokeWidth=2, cornerRadius=3)
+              .encode(x=alt.X(f"{spec['x']}:O", title="Heure de départ planifiée"),
+                      y=alt.Y(f"{spec['y']}:N", sort=ORDRE_JOURS, title=None),
+                      color=alt.Color(f"{spec['val']}:Q", title="% en retard",
+                                      scale=alt.Scale(range=["#EEF3F8", "#F6C08A", RETARD, "#8F1D1D"])),
+                      tooltip=list(df.columns)).properties(height=300))
+    else:
+        return None
+    return (ch.configure_view(strokeWidth=0)
+              .configure_axis(labelFont="IBM Plex Sans, system-ui, sans-serif", titleFont="IBM Plex Sans, system-ui, sans-serif", labelColor=ENCRE, titleColor="#5B6B7F",
+                              gridColor="#E6ECF3", domainColor="#C9D6E6")
+              .configure_legend(labelFont="IBM Plex Sans, system-ui, sans-serif", labelColor=ENCRE))
 
 
 def exporter_excel(feuilles):
